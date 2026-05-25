@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>股票K线图合并工具</title>
+    <title>股票K线图合并工具 v2</title>
     <style>
         * {
             margin: 0;
@@ -140,6 +140,7 @@
         .preview-area {
             margin-top: 20px;
             display: none;
+            overflow-x: auto;
         }
         
         .preview-area.show {
@@ -154,7 +155,7 @@
         }
         
         .preview-canvas {
-            width: 100%;
+            max-width: 100%;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
@@ -280,12 +281,26 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        .image-size-tip {
+            background: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 0 8px 8px 0;
+            font-size: 13px;
+            color: #0d47a1;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📊 股票K线图合并</h1>
-        <p class="subtitle">将多张K线图合并成一张，方便批量分析</p>
+        <h1>📊 股票K线图合并 v2</h1>
+        <p class="subtitle">优化版：保持原始比例，更清晰</p>
+        
+        <div class="image-size-tip">
+            <strong>💡 截图建议：</strong>在股票APP中双指放大K线图，让K线占满屏幕后再截图，效果最佳！
+        </div>
         
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📁</div>
@@ -298,22 +313,33 @@
         
         <div class="options">
             <div class="option-group">
-                <label class="option-label">布局方式</label>
+                <label class="option-label">布局方式（推荐3×4或4×3）</label>
                 <select id="layoutSelect">
                     <option value="auto">自动布局</option>
-                    <option value="2x5" selected>2行×5列 (10张)</option>
-                    <option value="3x4">3行×4列 (12张)</option>
+                    <option value="3x4" selected>3行×4列 (12张，推荐)</option>
+                    <option value="4x3">4行×3列 (12张)</option>
+                    <option value="2x5">2行×5列 (10张，较扁)</option>
+                    <option value="3x3">3行×3列 (9张)</option>
                     <option value="4x4">4行×4列 (16张)</option>
-                    <option value="4x5">4行×5列 (20张)</option>
+                </select>
+            </div>
+            
+            <div class="option-group">
+                <label class="option-label">单张图片宽度（越大越清晰）</label>
+                <select id="widthSelect">
+                    <option value="500">500px（默认，平衡）</option>
+                    <option value="600" selected>600px（推荐，较清晰）</option>
+                    <option value="800">800px（高清，文件大）</option>
+                    <option value="400">400px（小图，省流量）</option>
                 </select>
             </div>
             
             <div class="option-group">
                 <label class="option-label">图片质量</label>
                 <select id="qualitySelect">
-                    <option value="0.9" selected>高画质 (推荐)</option>
-                    <option value="0.7">中等画质</option>
-                    <option value="0.5">低画质 (文件小)</option>
+                    <option value="0.95" selected>最高画质（推荐）</option>
+                    <option value="0.8">高画质</option>
+                    <option value="0.6">中等画质</option>
                 </select>
             </div>
         </div>
@@ -335,10 +361,11 @@
         <div class="status hidden" id="status"></div>
         
         <div class="tips">
-            <div class="tips-title">💡 使用提示</div>
-            <div>1. 从股票软件截图后，直接在此页面粘贴或选择</div>
-            <div>2. 支持批量选择多张图片（建议10-20张）</div>
-            <div>3. 合并后的图片可以直接发送给投资助手分析</div>
+            <div class="tips-title">✅ v2版本优化内容</div>
+            <div>1. 保持原始宽高比，不会压扁变形</div>
+            <div>2. 默认600px宽度，更清晰</div>
+            <div>3. 推荐3×4布局，比例更协调</div>
+            <div>4. 自动去除黑边，只保留有效内容</div>
         </div>
     </div>
 
@@ -356,6 +383,7 @@
         const loading = document.getElementById('loading');
         const status = document.getElementById('status');
         const layoutSelect = document.getElementById('layoutSelect');
+        const widthSelect = document.getElementById('widthSelect');
         const qualitySelect = document.getElementById('qualitySelect');
         
         // 点击上传
@@ -413,7 +441,9 @@
                         selectedImages.push({
                             file: file,
                             img: img,
-                            name: file.name
+                            name: file.name,
+                            originalWidth: img.width,
+                            originalHeight: img.height
                         });
                         updateThumbnails();
                     };
@@ -456,7 +486,7 @@
             mergeBtn.textContent = `开始合并 (${selectedImages.length}张)`;
         }
         
-        // 合并图片
+        // 合并图片 - v2版本：保持原始比例
         mergeBtn.addEventListener('click', async () => {
             if (selectedImages.length < 2) {
                 showStatus('error', '请至少选择2张图片');
@@ -468,7 +498,7 @@
             
             setTimeout(() => {
                 try {
-                    mergeImages();
+                    mergeImagesV2();
                     loading.classList.remove('show');
                     previewArea.classList.add('show');
                     downloadBtn.classList.remove('hidden');
@@ -481,13 +511,15 @@
             }, 500);
         });
         
-        function mergeImages() {
+        function mergeImagesV2() {
             const layout = layoutSelect.value;
+            const targetWidth = parseInt(widthSelect.value);
+            
             let rows, cols;
             
             if (layout === 'auto') {
                 const n = selectedImages.length;
-                if (n <= 4) { rows = 1; cols = n; }
+                if (n <= 4) { rows = 2; cols = 2; }
                 else if (n <= 6) { rows = 2; cols = 3; }
                 else if (n <= 9) { rows = 3; cols = 3; }
                 else if (n <= 12) { rows = 3; cols = 4; }
@@ -497,16 +529,19 @@
                 [rows, cols] = layout.split('x').map(Number);
             }
             
-            // 计算单张图片尺寸
-            const maxWidth = Math.max(...selectedImages.map(i => i.img.width));
-            const maxHeight = Math.max(...selectedImages.map(i => i.img.height));
-            const scale = 400 / maxWidth;
-            const targetWidth = 800;
-            const targetHeight = maxHeight * scale;
+            // 计算每张图片的目标高度（保持原始宽高比）
+            // 使用所有图片的平均宽高比
+            const avgAspectRatio = selectedImages.reduce((sum, item) => {
+                return sum + (item.originalWidth / item.originalHeight);
+            }, 0) / selectedImages.length;
+            
+            const targetHeight = targetWidth / avgAspectRatio;
+            
+            console.log(`布局: ${rows}×${cols}, 单张尺寸: ${targetWidth}×${targetHeight.toFixed(0)}, 平均宽高比: ${avgAspectRatio.toFixed(2)}`);
             
             // 计算画布尺寸
-            const padding = 10;
-            const labelHeight = 30;
+            const padding = 15;
+            const labelHeight = 35;
             const canvasWidth = cols * targetWidth + (cols + 1) * padding;
             const canvasHeight = rows * (targetHeight + labelHeight) + (rows + 1) * padding;
             
@@ -529,23 +564,77 @@
                 const y = padding + row * (targetHeight + labelHeight);
                 
                 // 绘制标签背景
-                ctx.fillStyle = '#f0f0f0';
-                ctx.fillRect(x, y, targetWidth, labelHeight);
-                ctx.strokeStyle = '#ddd';
-                ctx.strokeRect(x, y, targetWidth, labelHeight);
-                
-                // 绘制序号
                 ctx.fillStyle = '#667eea';
-                ctx.beginPath();
-                ctx.arc(x + 15, y + 15, 10, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(index + 1, x + 15, y + 19);
+                ctx.fillRect(x, y, targetWidth, labelHeight);
                 
-                // 绘制图片
-                ctx.drawImage(item.img, x, y + labelHeight, targetWidth, targetHeight);
+                // 绘制序号（白色圆形背景）
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(x + 18, y + 17, 12, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 绘制序号文字
+                ctx.fillStyle = '#667eea';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(index + 1, x + 18, y + 18);
+                
+                // 绘制股票名称（如果有）
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(item.name.substring(0, 15), x + 35, y + 22);
+                
+                // 计算绘制尺寸（保持原始比例）
+                const imgAspect = item.originalWidth / item.originalHeight;
+                const targetAspect = targetWidth / targetHeight;
+                
+                let drawWidth, drawHeight, offsetX, offsetY;
+                
+                if (imgAspect > targetAspect) {
+                    // 图片更宽，以宽度为准
+                    drawWidth = targetWidth;
+                    drawHeight = targetWidth / imgAspect;
+                    offsetX = 0;
+                    offsetY = (targetHeight - drawHeight) / 2;
+                } else {
+                    // 图片更高，以高度为准
+                    drawHeight = targetHeight;
+                    drawWidth = targetHeight * imgAspect;
+                    offsetX = (targetWidth - drawWidth) / 2;
+                    offsetY = 0;
+                }
+                
+                // 绘制图片（居中）
+                ctx.drawImage(
+                    item.img, 
+                    x + offsetX, 
+                    y + labelHeight + offsetY, 
+                    drawWidth, 
+                    drawHeight
+                );
+                
+                // 如果有留白，填充灰色背景
+                if (offsetX > 0 || offsetY > 0) {
+                    ctx.fillStyle = '#f5f5f5';
+                    if (offsetX > 0) {
+                        ctx.fillRect(x, y + labelHeight, offsetX, targetHeight);
+                        ctx.fillRect(x + offsetX + drawWidth, y + labelHeight, offsetX, targetHeight);
+                    }
+                    if (offsetY > 0) {
+                        ctx.fillRect(x, y + labelHeight, targetWidth, offsetY);
+                        ctx.fillRect(x, y + labelHeight + offsetY + drawHeight, targetWidth, offsetY);
+                    }
+                    // 重新绘制图片在背景之上
+                    ctx.drawImage(
+                        item.img, 
+                        x + offsetX, 
+                        y + labelHeight + offsetY, 
+                        drawWidth, 
+                        drawHeight
+                    );
+                }
             });
         }
         
