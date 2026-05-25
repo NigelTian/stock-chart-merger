@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>股票K线图合并工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px 20px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area.dragover {
+            background: #e8ebff;
+            border-color: #764ba2;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .upload-text {
+            color: #667eea;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .upload-hint {
+            color: #999;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .options {
+            margin-bottom: 20px;
+        }
+        
+        .option-group {
+            margin-bottom: 15px;
+        }
+        
+        .option-label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            background: white;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 12px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+        }
+        
+        .preview-area {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .preview-area.show {
+            display: block;
+        }
+        
+        .preview-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .preview-canvas {
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .thumbnails {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .thumbnail {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .thumbnail-number {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .thumbnail-remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: rgba(255, 59, 48, 0.9);
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .tips {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px 15px;
+            margin-top: 20px;
+            border-radius: 0 8px 8px 0;
+            font-size: 13px;
+            color: #856404;
+        }
+        
+        .tips-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 股票K线图合并</h1>
+        <p class="subtitle">将多张K线图合并成一张，方便批量分析</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">点击选择图片或长按粘贴</div>
+            <div class="upload-hint">支持 JPG、PNG 格式</div>
+            <input type="file" id="fileInput" accept="image/*" multiple>
+        </div>
+        
+        <div class="thumbnails hidden" id="thumbnails"></div>
+        
+        <div class="options">
+            <div class="option-group">
+                <label class="option-label">布局方式</label>
+                <select id="layoutSelect">
+                    <option value="auto">自动布局</option>
+                    <option value="2x5" selected>2行×5列 (10张)</option>
+                    <option value="3x4">3行×4列 (12张)</option>
+                    <option value="4x4">4行×4列 (16张)</option>
+                    <option value="4x5">4行×5列 (20张)</option>
+                </select>
+            </div>
+            
+            <div class="option-group">
+                <label class="option-label">图片质量</label>
+                <select id="qualitySelect">
+                    <option value="0.9" selected>高画质 (推荐)</option>
+                    <option value="0.7">中等画质</option>
+                    <option value="0.5">低画质 (文件小)</option>
+                </select>
+            </div>
+        </div>
+        
+        <button class="btn btn-primary" id="mergeBtn" disabled>开始合并</button>
+        <button class="btn btn-secondary hidden" id="downloadBtn">保存到相册</button>
+        <button class="btn btn-secondary" id="clearBtn">清空重选</button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>正在合并图片...</div>
+        </div>
+        
+        <div class="preview-area" id="previewArea">
+            <div class="preview-title">合并结果预览：</div>
+            <canvas id="previewCanvas" class="preview-canvas"></canvas>
+        </div>
+        
+        <div class="status hidden" id="status"></div>
+        
+        <div class="tips">
+            <div class="tips-title">💡 使用提示</div>
+            <div>1. 从股票软件截图后，直接在此页面粘贴或选择</div>
+            <div>2. 支持批量选择多张图片（建议10-20张）</div>
+            <div>3. 合并后的图片可以直接发送给投资助手分析</div>
+        </div>
+    </div>
+
+    <script>
+        let selectedImages = [];
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const thumbnails = document.getElementById('thumbnails');
+        const mergeBtn = document.getElementById('mergeBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const previewArea = document.getElementById('previewArea');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const loading = document.getElementById('loading');
+        const status = document.getElementById('status');
+        const layoutSelect = document.getElementById('layoutSelect');
+        const qualitySelect = document.getElementById('qualitySelect');
+        
+        // 点击上传
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        // 拖拽上传
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        // 粘贴上传
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData.items;
+            const files = [];
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    files.push(item.getAsFile());
+                }
+            }
+            if (files.length > 0) {
+                handleFiles(files);
+                showStatus('success', `成功粘贴 ${files.length} 张图片`);
+            }
+        });
+        
+        function handleFiles(files) {
+            const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) {
+                showStatus('error', '请选择图片文件');
+                return;
+            }
+            
+            imageFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        selectedImages.push({
+                            file: file,
+                            img: img,
+                            name: file.name
+                        });
+                        updateThumbnails();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            showStatus('success', `已添加 ${imageFiles.length} 张图片，共 ${selectedImages.length + imageFiles.length} 张`);
+        }
+        
+        function updateThumbnails() {
+            thumbnails.innerHTML = '';
+            thumbnails.classList.remove('hidden');
+            
+            selectedImages.forEach((item, index) => {
+                const thumb = document.createElement('div');
+                thumb.className = 'thumbnail';
+                thumb.innerHTML = `
+                    <img src="${item.img.src}" alt="${item.name}">
+                    <div class="thumbnail-number">${index + 1}</div>
+                    <div class="thumbnail-remove" data-index="${index}">×</div>
+                `;
+                thumbnails.appendChild(thumb);
+            });
+            
+            // 删除按钮事件
+            document.querySelectorAll('.thumbnail-remove').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    selectedImages.splice(index, 1);
+                    updateThumbnails();
+                    if (selectedImages.length === 0) {
+                        resetUI();
+                    }
+                });
+            });
+            
+            mergeBtn.disabled = selectedImages.length < 2;
+            mergeBtn.textContent = `开始合并 (${selectedImages.length}张)`;
+        }
+        
+        // 合并图片
+        mergeBtn.addEventListener('click', async () => {
+            if (selectedImages.length < 2) {
+                showStatus('error', '请至少选择2张图片');
+                return;
+            }
+            
+            loading.classList.add('show');
+            mergeBtn.disabled = true;
+            
+            setTimeout(() => {
+                try {
+                    mergeImages();
+                    loading.classList.remove('show');
+                    previewArea.classList.add('show');
+                    downloadBtn.classList.remove('hidden');
+                    showStatus('success', '合并完成！点击图片可查看大图，或点击"保存到相册"');
+                } catch (err) {
+                    loading.classList.remove('show');
+                    showStatus('error', '合并失败: ' + err.message);
+                }
+                mergeBtn.disabled = false;
+            }, 500);
+        });
+        
+        function mergeImages() {
+            const layout = layoutSelect.value;
+            let rows, cols;
+            
+            if (layout === 'auto') {
+                const n = selectedImages.length;
+                if (n <= 4) { rows = 1; cols = n; }
+                else if (n <= 6) { rows = 2; cols = 3; }
+                else if (n <= 9) { rows = 3; cols = 3; }
+                else if (n <= 12) { rows = 3; cols = 4; }
+                else if (n <= 16) { rows = 4; cols = 4; }
+                else { rows = 4; cols = 5; }
+            } else {
+                [rows, cols] = layout.split('x').map(Number);
+            }
+            
+            // 计算单张图片尺寸
+            const maxWidth = Math.max(...selectedImages.map(i => i.img.width));
+            const maxHeight = Math.max(...selectedImages.map(i => i.img.height));
+            const scale = 400 / maxWidth;
+            const targetWidth = 400;
+            const targetHeight = maxHeight * scale;
+            
+            // 计算画布尺寸
+            const padding = 10;
+            const labelHeight = 30;
+            const canvasWidth = cols * targetWidth + (cols + 1) * padding;
+            const canvasHeight = rows * (targetHeight + labelHeight) + (rows + 1) * padding;
+            
+            // 设置画布
+            previewCanvas.width = canvasWidth;
+            previewCanvas.height = canvasHeight;
+            const ctx = previewCanvas.getContext('2d');
+            
+            // 白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            
+            // 绘制每张图片
+            selectedImages.forEach((item, index) => {
+                if (index >= rows * cols) return;
+                
+                const row = Math.floor(index / cols);
+                const col = index % cols;
+                const x = padding + col * (targetWidth + padding);
+                const y = padding + row * (targetHeight + labelHeight);
+                
+                // 绘制标签背景
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(x, y, targetWidth, labelHeight);
+                ctx.strokeStyle = '#ddd';
+                ctx.strokeRect(x, y, targetWidth, labelHeight);
+                
+                // 绘制序号
+                ctx.fillStyle = '#667eea';
+                ctx.beginPath();
+                ctx.arc(x + 15, y + 15, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(index + 1, x + 15, y + 19);
+                
+                // 绘制图片
+                ctx.drawImage(item.img, x, y + labelHeight, targetWidth, targetHeight);
+            });
+        }
+        
+        // 下载图片
+        downloadBtn.addEventListener('click', () => {
+            const quality = parseFloat(qualitySelect.value);
+            const link = document.createElement('a');
+            link.download = `stock_charts_${new Date().getTime()}.jpg`;
+            link.href = previewCanvas.toDataURL('image/jpeg', quality);
+            link.click();
+            showStatus('success', '图片已保存到相册');
+        });
+        
+        // 清空
+        clearBtn.addEventListener('click', resetUI);
+        
+        function resetUI() {
+            selectedImages = [];
+            thumbnails.innerHTML = '';
+            thumbnails.classList.add('hidden');
+            previewArea.classList.remove('show');
+            downloadBtn.classList.add('hidden');
+            mergeBtn.disabled = true;
+            mergeBtn.textContent = '开始合并';
+            status.classList.add('hidden');
+            fileInput.value = '';
+        }
+        
+        function showStatus(type, message) {
+            status.className = `status status-${type}`;
+            status.textContent = message;
+            status.classList.remove('hidden');
+            setTimeout(() => status.classList.add('hidden'), 5000);
+        }
+        
+        // 防止页面滚动反弹
+        document.body.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+    </script>
+</body>
+</html>
