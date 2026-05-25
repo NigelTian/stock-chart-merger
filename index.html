@@ -670,10 +670,7 @@
             setTimeout(() => status.classList.add('hidden'), 5000);
         }
         
-        // 防止页面滚动反弹
-        document.body.addEventListener('touchmove', function(e) {
-            e.preventDefault();
-        }, { passive: false });
+        // 允许页面正常滚动，只在特定区域禁用滚动（如果需要）
     </script>
 </body>
 </html>
